@@ -10,71 +10,77 @@ metadata = MetaData(naming_convention={
 
 db = SQLAlchemy(metadata=metadata)
 
-class Hotel(db.Model, SerializerMixin):
-    __tablename__ = 'hotels'
+class Player(db.Model, SerializerMixin):
+    __tablename__ = 'players'
 
-    serialize_rules = ('-reviews',)
-
+# Table Columns:
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False, unique=True)
-    image = db.Column(db.String, nullable=False)
-
-    reviews = db.relationship('Review', back_populates='hotel')
-
-    customers = association_proxy('reviews', 'customer',
-        creator=lambda c: Review(customer=c))
-
-    @validates('name')
-    def validate_name(self, key, value):
-        if len(value) < 5:
-            raise ValueError(f"{key} must be at least 5 characters long.")
-        return value
+    username = db.Column(db.String, nullable=False, unique=True)
+    age = db.Column(db.Integer, nullable=False)
+    gender = db.Column(db.String, nullable=False)
+    height = db.Column(db.String, nullable=False)
+    weight = db.Column(db.String, nullable=False)
+    position = db.Column(db.String, nullable=False)
+    image = db.Column(db.String)
+# TBD on whether these will be necessary for API database:
+    # dunkability = db.Column(db.String)
+    # frequency = db.Column(db.String)
+    # skill_level = db.Column(db.String)
+# Table Relationships:
+    player_games = db.relationship('PlayerGame', back_populates='player', cascade='all, delete-orphan')
+    games = association_proxy('player_games', 'game',
+        creator=lambda g: PlayerGame(game=g))
     
     def __repr__(self):
-        return f"Hotel # {self.id}: {self.name} hotel"
+        return f"Player # {self.id}: {self.username} player"
 
-class Customer(db.Model, SerializerMixin):
-    __tablename__ = 'customers'
+class PlayerGame(db.Model, SerializerMixin):
+    __tablename__ = 'player_games'
 
-    serialize_rules = ('-reviews',)
-
+# Table Columns:
     id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String, nullable=False)
-    last_name = db.Column(db.String, nullable=False)
+    score = db.Column(db.String)
 
-    reviews = db.relationship('Review', back_populates='customer')
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
 
-    hotels = association_proxy('reviews', 'hotel',
-        creator=lambda h: Review(hotel=h))
-
-    __table_args__ = (
-        db.CheckConstraint('(first_name != last_name)'),
-    )
-
-    @validates('first_name', 'last_name')
-    def validate_first_name(self, key, value):
-        if value is None:
-            raise ValueError(f"{key} cannot be null.")
-        elif len(value) < 4:
-            raise ValueError(f"{key} must be at least 4 characters long.")
-        return value
-    
-    def __repr__(self):
-        return f"Customer # {self.id}: {self.first_name} {self.last_name}"
-    
-class Review(db.Model, SerializerMixin):
-    __tablename__ = 'reviews'
-
-    serialize_rules = ('-hotel.reviews', '-customer.reviews')
-
-    id = db.Column(db.Integer, primary_key=True)
-    rating = db.Column(db.Integer)
-
-    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'))
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'))
-
-    hotel = db.relationship('Hotel', back_populates='reviews')
-    customer = db.relationship('Customer', back_populates='reviews')
+# Table Relationships:
+    player = db.relationship('Player', back_populates='player_games')
+    game = db.relationship('Game', back_populates='player_games')
 
     def __repr__(self):
-        return f"Review # {self.id}: {self.customer.first_name} {self.customer.last_name} left of a review for {self.hotel.name} with a rating of {self.rating}."
+        return f"PlayerGame # {self.id}: {self.score}"
+    
+class Game(db.Model, SerializerMixin):
+    __tablename__ = 'games'
+
+# Table Columns: 
+    id = db.Column(db.Integer, primary_key=True)
+    date_time = db.Column(db.DateTime, server_default = db.func.now())
+    type = db.Column(db.String)
+    description = db.Column(db.String)
+
+    court_id = db.Column(db.Integer, db.ForeignKey('courts.id'))
+
+# Table Relationships:
+    player_games = db.relationship('PlayerGame', back_populates='game')
+    court = db.relationship('Court', back_populates='games')
+    players = association_proxy('player_games', 'player', creator=lambda p: PlayerGame(player=p))
+
+    def __repr__(self):
+        return f"Game # {self.id}: {self.description} at {self.date_time}."
+    
+class Court(db.Model, SerializerMixin):
+    __tablename__ = 'courts'
+
+# Table Columns:
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String)
+    location = db.Column(db.String)
+
+# Table Relationships:
+    games = db.relationship('Game', back_populates='court', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"Court # {self.id}: {self.title} at {self.location}."
+    
